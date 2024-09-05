@@ -81,11 +81,15 @@ if __name__ == '__main__':
     bce_criterion = torch.nn.BCEWithLogitsLoss()
     adam_optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.98))
     
+    time_list = []
+    loss_list = []
     T = 0.0
     t0 = time.time()
     start_time = time.time()
     
     for epoch in tqdm(range(epoch_start_idx, args.num_epochs + 1)):
+        epoch_s_time = time.time()
+        total_loss, count = 0, 0
         if args.inference_only: break
         for step in range(num_batch):
             u, seq, pos, neg = sampler.next_batch()
@@ -102,12 +106,21 @@ if __name__ == '__main__':
             
             #GAUDI
             loss.backward()
-            htcore.mark_step()
+            if args.device =='hpu':
+                htcore.mark_step()
             adam_optimizer.step()
-            htcore.mark_step()
+            if args.device =='hpu':
+                htcore.mark_step()
+            
+            total_loss += loss.item()
+            count+=1
             
             if step % 100 == 0:
                 print("loss in epoch {} iteration {}: {}".format(epoch, step, loss.item()))
+        
+        epoch_e_time = time.time()
+        time_list.append(epoch_e_time - epoch_s_time)
+        loss_list.append(total_loss/count)
     
         if epoch % 20 == 0 or epoch == 1:
             model.eval()
@@ -140,3 +153,6 @@ if __name__ == '__main__':
     end_time = time.time()
     print("Done")
     print("Time:", end_time-start_time)
+    
+    np.save('time.npy', np.array(time_list))
+    np.save('loss.npy', np.array(loss_list))

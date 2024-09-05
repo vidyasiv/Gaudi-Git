@@ -1,3 +1,5 @@
 *.gz
 *.txt
 *.pth
+*.ipynb
+*.npy
