@@ -36,7 +36,7 @@ if __name__ == '__main__':
     preprocess(args.dataset)
     dataset = data_partition(args.dataset)
     
-
+    
     [user_train, user_valid, user_test, usernum, itemnum] = dataset
     print('user num:', usernum, 'item num:', itemnum)
     num_batch = len(user_train) // args.batch_size
@@ -44,6 +44,9 @@ if __name__ == '__main__':
     for u in user_train:
         cc += len(user_train[u])
     print('average sequence length: %.2f' % (cc / len(user_train)))
+    
+    if args.device =='hpu':
+        args.device = torch.device('hpu')
     
     # dataloader
     sampler = WarpSampler(user_train, usernum, itemnum, batch_size=args.batch_size, maxlen=args.maxlen, n_workers=3)       
@@ -55,8 +58,6 @@ if __name__ == '__main__':
             torch.nn.init.xavier_normal_(param.data)
         except:
             pass
-    
-    model.train()
     
     epoch_start_idx = 1
     if args.state_dict_path is not None:
@@ -88,6 +89,7 @@ if __name__ == '__main__':
     start_time = time.time()
     
     for epoch in tqdm(range(epoch_start_idx, args.num_epochs + 1)):
+        model.train()
         epoch_s_time = time.time()
         total_loss, count = 0, 0
         if args.inference_only: break
