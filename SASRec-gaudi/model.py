@@ -29,6 +29,9 @@ class SASRec(torch.nn.Module):
         self.dev = args.device
 
         self.item_emb = torch.nn.Embedding(self.item_num+1, args.hidden_units, padding_idx=0)
+        
+        self.item_emb.weight.data.normal_(0.0,0.01)
+        
         self.pos_emb = torch.nn.Embedding(args.maxlen, args.hidden_units)
         self.emb_dropout = torch.nn.Dropout(p=args.dropout_rate)
 

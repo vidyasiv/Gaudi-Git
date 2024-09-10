@@ -39,7 +39,7 @@ def preprocess(fname):
         rev = l['user_id']
         time = l['timestamp']
         
-        threshold = 5
+        threshold = 4
             
         if countU[rev] < threshold or countP[asin] < threshold:
             continue
