@@ -5,20 +5,20 @@ import json
 from tqdm import tqdm
 from collections import defaultdict
 
-def parse(path):
-    g = gzip.open(path, 'rb')
-    for l in tqdm(g):
-        yield json.loads(l)
+from datasets import load_dataset
+
         
 def preprocess(fname):
     countU = defaultdict(lambda: 0)
     countP = defaultdict(lambda: 0)
     line = 0
 
-    file_path = f'./data/{fname}.jsonl.gz'
-    
+    dataset = load_dataset("McAuley-Lab/Amazon-Reviews-2023", f"raw_review_{fname}", trust_remote_code=True)
+
+    dataset = dataset['full']
     # counting interactions for each user and item
-    for l in parse(file_path):
+    
+    for l in tqdm(dataset):
         line += 1
         asin = l['asin']
         rev = l['user_id']
@@ -33,13 +33,13 @@ def preprocess(fname):
     User = dict()
     
     
-    for l in parse(file_path):
+    for l in tqdm(dataset):
         line += 1
         asin = l['asin']
         rev = l['user_id']
         time = l['timestamp']
         
-        threshold = 4
+        threshold = 5
             
         if countU[rev] < threshold or countP[asin] < threshold:
             continue
@@ -70,3 +70,5 @@ def preprocess(fname):
         for i in User[user]:
             f.write('%d %d\n' % (user, i[1]))
     f.close()
+    
+    del dataset

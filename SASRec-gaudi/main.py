@@ -14,8 +14,8 @@ from utils import *
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
-# parser.add_argument('--dataset', required=True)
-parser.add_argument('--dataset', default = 'Amazon_Fashion')
+parser.add_argument('--dataset', required=True)
+# parser.add_argument('--dataset', default = 'Amazon_Fashion')
 parser.add_argument('--batch_size', default=128, type=int)
 parser.add_argument('--lr', default=0.001, type=float)
 parser.add_argument('--maxlen', default=50, type=int)
@@ -34,7 +34,10 @@ args = parser.parse_args()
 if __name__ == '__main__':
     
     # global dataset
-    preprocess(args.dataset)
+    
+    if not os.path.isfile(f'./data/processed/{args.dataset}.txt'):
+        print("Download Dataset")
+        preprocess(args.dataset)
     dataset = data_partition(args.dataset)
     
     
