@@ -17,13 +17,19 @@ class PMF(torch.nn.Module):
         
         self.dev = args.device
         
-        self.user_emb = nn.Embedding(self.user_num, args.hidden_units, padding_idx=0)
-        self.item_emb = nn.Embedding(self.item_num, args.hidden_units, padding_idx=0)
+        # self.user_emb = nn.Embedding(self.user_num, args.hidden_units, padding_idx=0)
+        # self.item_emb = nn.Embedding(self.item_num, args.hidden_units, padding_idx=0)
+        
+        self.user_emb = nn.Parameter(torch.normal(0,1, size=(self.user_num, args.hidden_units)))
+        self.item_emb = nn.Parameter(torch.normal(0,1, size=(self.user_num, args.hidden_units)))
         
     def forward(self, user_ids, item_ids):
         
-        user_embs = self.user_emb(torch.LongTensor(user_ids).to(self.dev))
-        item_embs = self.item_emb(torch.LongTensor(item_ids).to(self.dev))
+        # user_embs = self.user_emb(torch.LongTensor(user_ids).to(self.dev))
+        # item_embs = self.item_emb(torch.LongTensor(item_ids).to(self.dev))
+        
+        user_embs = self.user_emb[torch.LongTensor(user_ids).to(self.dev)]
+        item_embs = self.item_emb[torch.LongTensor(item_ids).to(self.dev)]
 
         logits = self.act(torch.matmul(user_embs, item_embs.T))
         labels = self.label_matrix[user_ids,:][:,item_ids]
@@ -35,8 +41,11 @@ class PMF(torch.nn.Module):
         return loss
     
     def predict(self, user_ids, item_indices):
-        user_embs = self.user_emb(torch.LongTensor(user_ids).to(self.dev))
-        item_embs = self.item_emb(torch.LongTensor(item_indices).to(self.dev))
+        # user_embs = self.user_emb(torch.LongTensor(user_ids).to(self.dev))
+        # item_embs = self.item_emb(torch.LongTensor(item_indices).to(self.dev))
+        
+        user_embs = self.user_emb[torch.LongTensor(user_ids).to(self.dev)]
+        item_embs = self.item_emb[torch.LongTensor(item_indices).to(self.dev)]
 
         logits = self.act(torch.matmul(user_embs, item_embs.T))
         

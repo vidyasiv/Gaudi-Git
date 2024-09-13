@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-
+import torch.nn as nn
 
 class PointWiseFeedForward(torch.nn.Module):
     def __init__(self, hidden_units, dropout_rate):
@@ -27,12 +27,17 @@ class SASRec(torch.nn.Module):
         self.user_num = user_num
         self.item_num = item_num
         self.dev = args.device
+        self.embedding_dim = args.hidden_units
+        self.nn_parameter = args.nn_parameter
+        
+        if self.nn_parameter:
+            self.item_emb = nn.Parameter(torch.normal(0,1, size = (self.item_num+1, args.hidden_units)))
+            self.pos_emb = nn.Parameter(torch.normal(0,1, size=(args.maxlen, args.hidden_units)))
+        else:
+            self.item_emb = torch.nn.Embedding(self.item_num+1, args.hidden_units, padding_idx=0)
+            self.item_emb.weight.data.normal_(0.0,1)
+            self.pos_emb = torch.nn.Embedding(args.maxlen, args.hidden_units)
 
-        self.item_emb = torch.nn.Embedding(self.item_num+1, args.hidden_units, padding_idx=0)
-        
-        self.item_emb.weight.data.normal_(0.0,0.01)
-        
-        self.pos_emb = torch.nn.Embedding(args.maxlen, args.hidden_units)
         self.emb_dropout = torch.nn.Dropout(p=args.dropout_rate)
 
         self.attention_layernorms = torch.nn.ModuleList()
@@ -61,10 +66,21 @@ class SASRec(torch.nn.Module):
             self.forward_layers.append(new_fwd_layer)
 
     def log2feats(self, log_seqs):
-        seqs = self.item_emb(torch.LongTensor(log_seqs).to(self.dev))
-        seqs *= self.item_emb.embedding_dim ** 0.5
+        if self.nn_parameter:
+            seqs = self.item_emb[torch.LongTensor(log_seqs).to(self.dev)]
+            seqs *= self.embedding_dim **0.5
+        else:
+            seqs = self.item_emb(torch.LongTensor(log_seqs).to(self.dev))
+            seqs *= self.item_emb.embedding_dim ** 0.5
+        
         positions = np.tile(np.array(range(log_seqs.shape[1])), [log_seqs.shape[0], 1])
-        seqs += self.pos_emb(torch.LongTensor(positions).to(self.dev))
+        
+        #nn.Embedding
+        if self.nn_parameter:
+            seqs += self.pos_emb[torch.LongTensor(positions).to(self.dev)]
+        else:
+            seqs += self.pos_emb(torch.LongTensor(positions).to(self.dev))
+            
         seqs = self.emb_dropout(seqs)
 
         timeline_mask = torch.BoolTensor(log_seqs == 0).to(self.dev)
@@ -94,9 +110,14 @@ class SASRec(torch.nn.Module):
         if mode == 'log_only':
             log_feats = log_feats[:, -1, :]
             return log_feats
-            
-        pos_embs = self.item_emb(torch.LongTensor(pos_seqs).to(self.dev))
-        neg_embs = self.item_emb(torch.LongTensor(neg_seqs).to(self.dev))
+        
+        #nn.Embedding
+        if self.nn_parameter:
+            pos_embs = self.item_emb[torch.LongTensor(pos_seqs).to(self.dev)]
+            neg_embs = self.item_emb[torch.LongTensor(neg_seqs).to(self.dev)]
+        else:
+            pos_embs = self.item_emb(torch.LongTensor(pos_seqs).to(self.dev))
+            neg_embs = self.item_emb(torch.LongTensor(neg_seqs).to(self.dev))
 
         pos_logits = (log_feats * pos_embs).sum(dim=-1)
         neg_logits = (log_feats * neg_embs).sum(dim=-1)
@@ -113,8 +134,12 @@ class SASRec(torch.nn.Module):
 
         final_feat = log_feats[:, -1, :]
 
-        item_embs = self.item_emb(torch.LongTensor(item_indices).to(self.dev))
-
+        #nn.Embedding
+        if self.nn_parameter:
+            item_embs = self.item_emb[torch.LongTensor(item_indices).to(self.dev)]
+        else:
+            item_embs = self.item_emb(torch.LongTensor(item_indices).to(self.dev))
+    
         logits = item_embs.matmul(final_feat.unsqueeze(-1)).squeeze(-1)
 
         return logits

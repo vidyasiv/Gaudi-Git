@@ -27,6 +27,7 @@ parser.add_argument('--dropout_rate', default=0.5, type=float)
 parser.add_argument('--l2_emb', default=0.0, type=float)
 parser.add_argument('--device', default='hpu', type=str, help='cpu, hpu')
 parser.add_argument('--inference_only', default=False, action='store_true')
+parser.add_argument('--nn_parameter', default=False, action='store_true')
 parser.add_argument('--state_dict_path', default=None, type=str)
 
 args = parser.parse_args()
@@ -108,8 +109,13 @@ if __name__ == '__main__':
             indices = np.where(pos != 0)
             loss = bce_criterion(pos_logits[indices], pos_labels[indices])
             loss += bce_criterion(neg_logits[indices], neg_labels[indices])
-            for param in model.item_emb.parameters(): loss += args.l2_emb * torch.norm(param)
             
+            #nn.Embedding
+            if args.nn_parameter:
+                loss += args.l2_emb * torch.norm(model.item_emb)
+            else:
+                for param in model.item_emb.parameters(): loss += args.l2_emb * torch.norm(param)
+             
             #GAUDI
             loss.backward()
             if args.device =='hpu':
@@ -128,7 +134,7 @@ if __name__ == '__main__':
         time_list.append(epoch_e_time - epoch_s_time)
         loss_list.append(total_loss/count)
     
-        if epoch % 20 == 0 or epoch == 1:
+        if epoch % 20 == 0:
             model.eval()
             t1 = time.time() - t0
             T += t1
