@@ -40,13 +40,13 @@ def train_model_phase1(args):
     else:
         train_model_phase1_(0, 0, args)
         
-# def train_model_phase2(args):
-#     print('A-LLMRec strat train phase-2\n')
-#     if args.multi_gpu:
-#         world_size = htcore.device_count()
-#         mp.spawn(train_model_phase2_, args=(world_size, args), nprocs=world_size)
-#     else:
-#         train_model_phase2_(0, 0, args)
+def train_model_phase2(args):
+    print('A-LLMRec strat train phase-2\n')
+    if args.multi_gpu:
+        world_size = htcore.device_count()
+        mp.spawn(train_model_phase2_, args=(world_size, args), nprocs=world_size)
+    else:
+        train_model_phase2_(0, 0, args)
 
 # def inference(args):
 #     print('A-LLMRec start inference\n')
@@ -108,56 +108,56 @@ def train_model_phase1_(rank, world_size, args):
         destroy_process_group()
     return 
 
-# def train_model_phase2_(rank,world_size,args):
-#     if args.multi_gpu:
-#         setup_ddp(rank, world_size)
-#         args.device = torch.device('hpu')
-#     random.seed(0)
+def train_model_phase2_(rank,world_size,args):
+    if args.multi_gpu:
+        setup_ddp(rank, world_size)
+        args.device = torch.device('hpu')
+    random.seed(0)
 
-#     model = A_llmrec_model(args).to(args.device)
-#     phase1_epoch = 10
-#     model.load_model(args, phase1_epoch=phase1_epoch)
+    model = A_llmrec_model(args).to(args.device)
+    phase1_epoch = 10#10
+    model.load_model(args, phase1_epoch=phase1_epoch)
 
-#     dataset = data_partition(args.rec_pre_trained_data, path=f'./data/amazon/{args.rec_pre_trained_data}.txt')
-#     [user_train, user_valid, user_test, usernum, itemnum] = dataset
-#     print('user num:', usernum, 'item num:', itemnum)
-#     num_batch = len(user_train) // args.batch_size2
-#     cc = 0.0
-#     for u in user_train:
-#         cc += len(user_train[u])
-#     print('average sequence length: %.2f' % (cc / len(user_train)))
-#     # Init Dataloader, Model, Optimizer
-#     train_data_set = SeqDataset(user_train, usernum, itemnum, args.maxlen)
-#     if args.multi_gpu:
-#         train_data_loader = DataLoader(train_data_set, batch_size = args.batch_size2, sampler=DistributedSampler(train_data_set, shuffle=True), pin_memory=True)
-#         model = DDP(model, device_ids = [args.device], static_graph=True)
-#     else:
-#         train_data_loader = DataLoader(train_data_set, batch_size = args.batch_size2, pin_memory=True, shuffle=True)
-#     adam_optimizer = torch.optim.Adam(model.parameters(), lr=args.stage2_lr, betas=(0.9, 0.98))
+    dataset = data_partition(args.rec_pre_trained_data, path=f'./data/amazon/{args.rec_pre_trained_data}.txt')
+    [user_train, user_valid, user_test, usernum, itemnum] = dataset
+    print('user num:', usernum, 'item num:', itemnum)
+    num_batch = len(user_train) // args.batch_size2
+    cc = 0.0
+    for u in user_train:
+        cc += len(user_train[u])
+    print('average sequence length: %.2f' % (cc / len(user_train)))
+    # Init Dataloader, Model, Optimizer
+    train_data_set = SeqDataset(user_train, usernum, itemnum, args.maxlen)
+    if args.multi_gpu:
+        train_data_loader = DataLoader(train_data_set, batch_size = args.batch_size2, sampler=DistributedSampler(train_data_set, shuffle=True), pin_memory=True)
+        model = DDP(model, device_ids = [args.device], static_graph=True)
+    else:
+        train_data_loader = DataLoader(train_data_set, batch_size = args.batch_size2, pin_memory=True, shuffle=True)
+    adam_optimizer = torch.optim.Adam(model.parameters(), lr=args.stage2_lr, betas=(0.9, 0.98))
     
-#     epoch_start_idx = 1
-#     T = 0.0
-#     model.train()
-#     t0 = time.time()
-#     for epoch in tqdm(range(epoch_start_idx, args.num_epochs + 1)):
-#         if args.multi_gpu:
-#             train_data_loader.sampler.set_epoch(epoch)
-#         for step, data in enumerate(train_data_loader):
-#             u, seq, pos, neg = data
-#             u, seq, pos, neg = u.numpy(), seq.numpy(), pos.numpy(), neg.numpy()
-#             model([u,seq,pos,neg], optimizer=adam_optimizer, batch_iter=[epoch,args.num_epochs + 1,step,num_batch], mode='phase2')
-#             if step % max(10,num_batch//100) ==0:
-#                 if rank ==0:
-#                     if args.multi_gpu: model.module.save_model(args, epoch1=phase1_epoch, epoch2=epoch)
-#                     else: model.save_model(args, epoch1=phase1_epoch, epoch2=epoch)
-#         if rank == 0:
-#             if args.multi_gpu: model.module.save_model(args, epoch1=phase1_epoch, epoch2=epoch)
-#             else: model.save_model(args, epoch1=phase1_epoch, epoch2=epoch)
+    epoch_start_idx = 1
+    T = 0.0
+    model.train()
+    t0 = time.time()
+    for epoch in tqdm(range(epoch_start_idx, args.num_epochs + 1)):
+        if args.multi_gpu:
+            train_data_loader.sampler.set_epoch(epoch)
+        for step, data in enumerate(train_data_loader):
+            u, seq, pos, neg = data
+            u, seq, pos, neg = u.numpy(), seq.numpy(), pos.numpy(), neg.numpy()
+            model([u,seq,pos,neg], optimizer=adam_optimizer, batch_iter=[epoch,args.num_epochs + 1,step,num_batch], mode='phase2')
+            if step % max(10,num_batch//100) ==0:
+                if rank ==0:
+                    if args.multi_gpu: model.module.save_model(args, epoch1=phase1_epoch, epoch2=epoch)
+                    else: model.save_model(args, epoch1=phase1_epoch, epoch2=epoch)
+        if rank == 0:
+            if args.multi_gpu: model.module.save_model(args, epoch1=phase1_epoch, epoch2=epoch)
+            else: model.save_model(args, epoch1=phase1_epoch, epoch2=epoch)
     
-#     print('phase2 train time :', time.time() - t0)
-#     if args.multi_gpu:
-#         destroy_process_group()
-#     return
+    print('phase2 train time :', time.time() - t0)
+    if args.multi_gpu:
+        destroy_process_group()
+    return
 
 # def inference_(rank, world_size, args):
 #     if args.multi_gpu:

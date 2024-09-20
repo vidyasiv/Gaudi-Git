@@ -98,8 +98,10 @@ class A_llmrec_model(nn.Module):
     def load_model(self, args, phase1_epoch=None, phase2_epoch=None):
         out_dir = f'./models/saved_models/{args.rec_pre_trained_data}_{args.recsys}_{phase1_epoch}_'
         
-        mlp = torch.load(out_dir + 'mlp.pt', map_location = args.device)
+        # mlp = torch.load(out_dir + 'mlp.pt', map_location = args.device)
+        mlp = torch.load(out_dir + 'mlp.pt')
         self.mlp.load_state_dict(mlp)
+
         del mlp
         for name, param in self.mlp.named_parameters():
             param.requires_grad = False
@@ -141,7 +143,10 @@ class A_llmrec_model(nn.Module):
         
     def get_item_emb(self, item_ids):
         with torch.no_grad():
-            item_embs = self.recsys.model.item_emb(torch.LongTensor(item_ids).to(self.device))
+            if self.args.nn_parameter:
+                item_embs = self.recsys.model.item_emb[torch.LongTensor(item_ids).to(self.device)]
+            else:
+                item_embs = self.recsys.model.item_emb(torch.LongTensor(item_ids).to(self.device))
             item_embs, _ = self.mlp(item_embs)
         
         return item_embs
@@ -323,8 +328,11 @@ class A_llmrec_model(nn.Module):
         log_emb = self.log_emb_proj(log_emb)
         loss_rm = self.llm(log_emb, samples)
         loss_rm.backward()
+        htcore.mark_step()
         optimizer.step()
+        htcore.mark_step()
         mean_loss += loss_rm.item()
+                    
         print("A-LLMRec model loss in epoch {}/{} iteration {}/{}: {}".format(epoch, total_epoch, step, total_step, mean_loss))
         
     def generate(self, data):

@@ -43,7 +43,7 @@ if __name__ == "__main__":
     
     if args.pretrain_stage1:
         train_model_phase1(args)
-    # elif args.pretrain_stage2:
-    #     train_model_phase2(args)
+    elif args.pretrain_stage2:
+        train_model_phase2(args)
     # elif args.inference:
     #     inference(args)
