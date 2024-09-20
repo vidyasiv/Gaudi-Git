@@ -146,31 +146,40 @@ class SeqDataset_Inference(Dataset):
         neg = np.array(neg)
         return user_id, seq, pos, neg
 # train/val/test data generation
-def data_partition(fname):
+def data_partition(fname, path=None):
     usernum = 0
     itemnum = 0
     User = defaultdict(list)
-    user_train = defaultdict(list)
-    user_valid = defaultdict(list)
-    user_test = defaultdict(list)
+    user_train = {}
+    user_valid = {}
+    user_test = {}
     # assume user/item index starting from 1
+    
+    # f = open('./pre_train/sasrec/data/%s.txt' % fname, 'r')
+    if path == None:
+        f = open('./data/processed/%s.txt' % fname, 'r')
+    else:
+        f = open(path, 'r')
+    for line in f:
+        u, i = line.rstrip().split(' ')
+        u = int(u)
+        i = int(i)
+        usernum = max(u, usernum)
+        itemnum = max(i, itemnum)
+        User[u].append(i)
 
-    for t in ['train','valid','test']:    
-        f = open(f'./data/processed/{fname}_{t}.txt', 'r')
-        
-        for line in f:
-            u, i = line.rstrip().split(' ')
-            u = int(u)
-            i = int(i)
-            usernum = max(u, usernum)
-            itemnum = max(i, itemnum)
-            if t =='train':
-                user_train[u].append(i)
-            elif t =='valid':
-                user_valid[u].append(i)
-            elif t =='test':
-                user_test[u].append(i)
-
+    for user in User:
+        nfeedback = len(User[user])
+        if nfeedback < 3:
+            user_train[user] = User[user]
+            user_valid[user] = []
+            user_test[user] = []
+        else:
+            user_train[user] = User[user][:-2]
+            user_valid[user] = []
+            user_valid[user].append(User[user][-2])
+            user_test[user] = []
+            user_test[user].append(User[user][-1])
     return [user_train, user_valid, user_test, usernum, itemnum]
 
 # TODO: merge evaluate functions for test and val set

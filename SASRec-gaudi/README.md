@@ -19,4 +19,4 @@ python main.py --dataset All_Beauty --maxlen 10 --device hpu --nn_parameter
 ```
 
 - **Results**: When using `nn.Parameter` instead of `nn.Embedding`, training works correctly on the HPU, and the loss decreases as expected.
-```
+

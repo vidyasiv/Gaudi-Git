@@ -9,7 +9,7 @@ import habana_frameworks.torch.core as htcore
 
 from model import SASRec
 from data_preprocess import *
-from utils import *
+from utils_rawdata import *
 
 from tqdm import tqdm
 
@@ -36,9 +36,9 @@ if __name__ == '__main__':
     
     # global dataset
     
-    if (not os.path.isfile(f'./data/processed/{args.dataset}_train.txt')) or (not os.path.isfile(f'./data/processed/{args.dataset}_valid.txt') or (not os.path.isfile(f'./data/processed/{args.dataset}_test.txt'))):
+    if not os.path.isfile(f'./data/processed/{args.dataset}.txt'):
         print("Download Dataset")
-        preprocess(args.dataset)
+        preprocess_raw(args.dataset)
     dataset = data_partition(args.dataset)
     
     
