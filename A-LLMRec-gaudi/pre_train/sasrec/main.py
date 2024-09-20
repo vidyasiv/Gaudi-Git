@@ -2,7 +2,6 @@ import os
 import time
 import torch
 import argparse
-import numpy as np
 
 ###GAUDI
 import habana_frameworks.torch.core as htcore
@@ -15,7 +14,6 @@ from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', required=True)
-# parser.add_argument('--dataset', default = 'Amazon_Fashion')
 parser.add_argument('--batch_size', default=128, type=int)
 parser.add_argument('--lr', default=0.001, type=float)
 parser.add_argument('--maxlen', default=50, type=int)
@@ -25,24 +23,19 @@ parser.add_argument('--num_epochs', default=200, type=int)
 parser.add_argument('--num_heads', default=1, type=int)
 parser.add_argument('--dropout_rate', default=0.5, type=float)
 parser.add_argument('--l2_emb', default=0.0, type=float)
-parser.add_argument('--device', default='hpu', type=str, help='cpu, hpu')
+parser.add_argument('--device', default='hpu', type=str)
 parser.add_argument('--inference_only', default=False, action='store_true')
-parser.add_argument('--nn_parameter', default=False, action='store_true')
 parser.add_argument('--state_dict_path', default=None, type=str)
-parser.add_argument('--sampling', default=0, type=int, help='sampling rate, 0 = non sample')
+parser.add_argument('--nn_parameter', default=False, action='store_true')
 
 args = parser.parse_args()
 
 if __name__ == '__main__':
     
     # global dataset
-    
-    if (not os.path.isfile(f'./data/processed/{args.dataset}_train.txt')) or (not os.path.isfile(f'./data/processed/{args.dataset}_valid.txt') or (not os.path.isfile(f'./data/processed/{args.dataset}_test.txt'))):
-        print("Download Dataset")
-        preprocess(args.dataset)
-    dataset = data_partition(args.dataset, args)
-    
-    
+    preprocess(args.dataset)
+    dataset = data_partition(args.dataset)
+
     [user_train, user_valid, user_test, usernum, itemnum] = dataset
     print('user num:', usernum, 'item num:', itemnum)
     num_batch = len(user_train) // args.batch_size
@@ -50,10 +43,10 @@ if __name__ == '__main__':
     for u in user_train:
         cc += len(user_train[u])
     print('average sequence length: %.2f' % (cc / len(user_train)))
-    
+
     if args.device =='hpu':
         args.device = torch.device('hpu')
-    
+
     # dataloader
     sampler = WarpSampler(user_train, usernum, itemnum, batch_size=args.batch_size, maxlen=args.maxlen, n_workers=3)       
     # model init
@@ -64,6 +57,8 @@ if __name__ == '__main__':
             torch.nn.init.xavier_normal_(param.data)
         except:
             pass
+    
+    model.train()
     
     epoch_start_idx = 1
     if args.state_dict_path is not None:
@@ -88,21 +83,16 @@ if __name__ == '__main__':
     bce_criterion = torch.nn.BCEWithLogitsLoss()
     adam_optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.98))
     
-    time_list = []
-    loss_list = []
     T = 0.0
     t0 = time.time()
-    start_time = time.time()
     
     for epoch in tqdm(range(epoch_start_idx, args.num_epochs + 1)):
-        model.train()
-        epoch_s_time = time.time()
-        total_loss, count = 0, 0
+        total_loss = 0
+        count = 0
         if args.inference_only: break
         for step in range(num_batch):
             u, seq, pos, neg = sampler.next_batch()
             u, seq, pos, neg = np.array(u), np.array(seq), np.array(pos), np.array(neg)
-            
             pos_logits, neg_logits = model(u, seq, pos, neg)
             pos_labels, neg_labels = torch.ones(pos_logits.shape, device=args.device), torch.zeros(neg_logits.shape, device=args.device)
 
@@ -116,7 +106,6 @@ if __name__ == '__main__':
                 loss += args.l2_emb * torch.norm(model.item_emb)
             else:
                 for param in model.item_emb.parameters(): loss += args.l2_emb * torch.norm(param)
-             
             #GAUDI
             loss.backward()
             if args.device =='hpu':
@@ -124,17 +113,13 @@ if __name__ == '__main__':
             adam_optimizer.step()
             if args.device =='hpu':
                 htcore.mark_step()
-            
+            if step % 100 == 0 and (not step == 0):
+                print("loss in epoch {} iteration {}: {}".format(epoch, step, loss.item())) # expected 0.4~0.6 after init few epochs
+            # print(count)
             total_loss += loss.item()
-            count+=1
-            
-            if step % 100 == 0:
-                print("loss in epoch {} iteration {}: {}".format(epoch, step, loss.item()))
-        
-        epoch_e_time = time.time()
-        time_list.append(epoch_e_time - epoch_s_time)
-        loss_list.append(total_loss/count)
-    
+            # print(total_loss)
+            count +=1
+        print("loss in epoch {}: {}".format(epoch, total_loss/count))
         if epoch % 20 == 0:
             model.eval()
             t1 = time.time() - t0
@@ -163,9 +148,4 @@ if __name__ == '__main__':
             torch.save([model.kwargs, model.state_dict()], os.path.join(folder, fname))
     
     sampler.close()
-    end_time = time.time()
     print("Done")
-    print("Time:", end_time-start_time)
-    
-    np.save('time.npy', np.array(time_list))
-    np.save('loss.npy', np.array(loss_list))

@@ -9,7 +9,7 @@ import os
 from datetime import datetime
 from pytz import timezone
 from torch.utils.data import Dataset
-from tqdm import tqdm
+
     
 # sampler for batch generation
 def random_neq(l, r, s):
@@ -146,99 +146,40 @@ class SeqDataset_Inference(Dataset):
         neg = np.array(neg)
         return user_id, seq, pos, neg
 # train/val/test data generation
-def data_partition(fname, args):
+def data_partition(fname, path=None):
     usernum = 0
     itemnum = 0
     User = defaultdict(list)
-    user_train = defaultdict(list)
-    user_valid = defaultdict(list)
-    user_test = defaultdict(list)
+    user_train = {}
+    user_valid = {}
+    user_test = {}
     # assume user/item index starting from 1
-
-    for t in ['train','valid','test']:    
-        f = open(f'./data/processed/{fname}_{t}.txt', 'r')
-        
-        for line in f:
-            u, i = line.rstrip().split(' ')
-            u = int(u)
-            i = int(i)
-            usernum = max(u, usernum)
-            itemnum = max(i, itemnum)
-            if t =='train':
-                user_train[u].append(i)
-            elif t =='valid':
-                user_valid[u].append(i)
-            elif t =='test':
-                user_test[u].append(i)
     
-    
-    if args.sampling:
-        user_train_sample, user_valid_sample, user_test_sample = {}, {}, {}
-        print("Sampling-----")
-        for k, v in tqdm(user_train.items()):
-            if k in user_test:
-                rand = random.randint(0, args.sampling)
-                if rand == 0:
-                    user_train_sample[k] = v
-                    user_valid_sample[k] = user_valid[k]
-                    user_test_sample[k] = user_test[k]
-        print("Remapping-----")
-        user_train = defaultdict(list)
-        user_valid = defaultdict(list)
-        user_test = defaultdict(list)
-        
-        usermap = dict()
-        usernum = 0
-        itemmap = dict()
-        itemnum = 0
-        for k, v in tqdm(user_train_sample.items()):
-            if k in usermap:
-                userid = usermap[k]
-            else:
-                usernum += 1
-                userid = usernum
-                usermap[k] = userid
-            
-            for v_ in v:
-                if v_ in itemmap:
-                    itemid = itemmap[v_]
-                else:
-                    itemnum += 1
-                    itemid = itemnum
-                    itemmap[v_] = itemid
-                user_train[userid].append(itemid)
-        for k, v in tqdm(user_valid_sample.items()):
-            if k in usermap:
-                userid = usermap[k]
-            else:
-                usernum += 1
-                userid = usernum
-                usermap[k] = userid
-                
-            if v[0] in itemmap:
-                itemid = itemmap[v[0]]
-            else:
-                itemnum += 1
-                itemid = itemnum
-                itemmap[v[0]] = itemid
-            user_valid[userid].append(itemid)
-        for k, v in tqdm(user_test_sample.items()):
-            if k in usermap:
-                userid = usermap[k]
-            else:
-                usernum += 1
-                userid = usernum
-                usermap[k] = userid
-                
-            if v[0] in itemmap:
-                itemid = itemmap[v[0]]
-            else:
-                itemnum += 1
-                itemid = itemnum
-                itemmap[v[0]] = itemid
-            user_test[userid].append(itemid)
-        
+    # f = open('./pre_train/sasrec/data/%s.txt' % fname, 'r')
+    if path == None:
+        f = open('../../data/amazon/%s.txt' % fname, 'r')
+    else:
+        f = open(path, 'r')
+    for line in f:
+        u, i = line.rstrip().split(' ')
+        u = int(u)
+        i = int(i)
+        usernum = max(u, usernum)
+        itemnum = max(i, itemnum)
+        User[u].append(i)
 
+    for user in User:
+        nfeedback = len(User[user])
+        if nfeedback < 3:
+            user_train[user] = User[user]
+            user_valid[user] = []
+            user_test[user] = []
+        else:
+            user_train[user] = User[user][:-2]
+            user_valid[user] = []
+            user_valid[user].append(User[user][-2])
+            user_test[user] = []
+            user_test[user].append(User[user][-1])
     return [user_train, user_valid, user_test, usernum, itemnum]
 
 # TODO: merge evaluate functions for test and val set
@@ -269,7 +210,7 @@ def evaluate(model, dataset, args):
         rated = set(train[u])
         rated.add(0)
         item_idx = [test[u][0]]
-        for _ in range(99):
+        for _ in range(19):
             t = np.random.randint(1, itemnum + 1)
             while t in rated: t = np.random.randint(1, itemnum + 1)
             item_idx.append(t)
