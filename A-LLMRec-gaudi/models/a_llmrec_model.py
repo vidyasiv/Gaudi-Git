@@ -109,11 +109,13 @@ class A_llmrec_model(nn.Module):
         if args.inference:
             out_dir += f'{args.llm}_{phase2_epoch}_'
             
-            log_emb_proj_dict = torch.load(out_dir + 'log_proj.pt', map_location = args.device)
+            # log_emb_proj_dict = torch.load(out_dir + 'log_proj.pt', map_location = args.device)
+            log_emb_proj_dict = torch.load(out_dir + 'log_proj.pt')
             self.log_emb_proj.load_state_dict(log_emb_proj_dict)
             del log_emb_proj_dict
             
-            item_emb_proj_dict = torch.load(out_dir + 'item_proj.pt', map_location = args.device)
+            # item_emb_proj_dict = torch.load(out_dir + 'item_proj.pt', map_location = args.device)
+            item_emb_proj_dict = torch.load(out_dir + 'item_proj.pt')
             self.item_emb_proj.load_state_dict(item_emb_proj_dict)
             del item_emb_proj_dict
 
@@ -400,17 +402,16 @@ class A_llmrec_model(nn.Module):
                 attention_mask = llm_tokens.attention_mask
                 inputs_embeds = torch.cat([log_emb, inputs_embeds], dim=1)
                 attention_mask = torch.cat([atts_llm, llm_tokens.attention_mask], dim=1)
-                    
+                
                 outputs = self.llm.llm_model.generate(
                     inputs_embeds=inputs_embeds,
                     attention_mask=attention_mask,
                     do_sample=False,
-                    top_p=0.9,
-                    temperature=1,
+                    top_p=0.1,
+                    temperature=0,
                     num_beams=1,
-                    max_length=512,
+                    max_new_tokens=128,
                     min_length=1,
-                    pad_token_id=self.llm.llm_tokenizer.eos_token_id,
                     repetition_penalty=1.5,
                     length_penalty=1,
                     num_return_sequences=1,

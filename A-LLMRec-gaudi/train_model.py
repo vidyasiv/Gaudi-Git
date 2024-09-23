@@ -48,13 +48,13 @@ def train_model_phase2(args):
     else:
         train_model_phase2_(0, 0, args)
 
-# def inference(args):
-#     print('A-LLMRec start inference\n')
-#     if args.multi_gpu:
-#         world_size = htcore.device_count()
-#         mp.spawn(inference_, args=(world_size, args), nprocs=world_size)
-#     else:
-#         inference_(0,0,args)
+def inference(args):
+    print('A-LLMRec start inference\n')
+    if args.multi_gpu:
+        world_size = htcore.device_count()
+        mp.spawn(inference_, args=(world_size, args), nprocs=world_size)
+    else:
+        inference_(0,0,args)
   
 def train_model_phase1_(rank, world_size, args):
     if args.multi_gpu:
@@ -159,45 +159,45 @@ def train_model_phase2_(rank,world_size,args):
         destroy_process_group()
     return
 
-# def inference_(rank, world_size, args):
-#     if args.multi_gpu:
-#         setup_ddp(rank, world_size)
-#         args.device = torch.device('hpu')
+def inference_(rank, world_size, args):
+    if args.multi_gpu:
+        setup_ddp(rank, world_size)
+        args.device = torch.device('hpu')
         
-#     model = A_llmrec_model(args).to(args.device)
-#     phase1_epoch = 10
-#     phase2_epoch = 5
-#     model.load_model(args, phase1_epoch=phase1_epoch, phase2_epoch=phase2_epoch)
+    model = A_llmrec_model(args).to(args.device)
+    phase1_epoch = 10
+    phase2_epoch = 1
+    model.load_model(args, phase1_epoch=phase1_epoch, phase2_epoch=phase2_epoch)
 
-#     dataset = data_partition(args.rec_pre_trained_data, path=f'./data/amazon/{args.rec_pre_trained_data}.txt')
-#     [user_train, user_valid, user_test, usernum, itemnum] = dataset
-#     print('user num:', usernum, 'item num:', itemnum)
-#     num_batch = len(user_train) // args.batch_size_infer
-#     cc = 0.0
-#     for u in user_train:
-#         cc += len(user_train[u])
-#     print('average sequence length: %.2f' % (cc / len(user_train)))
-#     model.eval()
+    dataset = data_partition(args.rec_pre_trained_data, path=f'./data/amazon/{args.rec_pre_trained_data}.txt')
+    [user_train, user_valid, user_test, usernum, itemnum] = dataset
+    print('user num:', usernum, 'item num:', itemnum)
+    num_batch = len(user_train) // args.batch_size_infer
+    cc = 0.0
+    for u in user_train:
+        cc += len(user_train[u])
+    print('average sequence length: %.2f' % (cc / len(user_train)))
+    model.eval()
     
-#     if usernum>10000:
-#         users = random.sample(range(1, usernum + 1), 10000)
-#     else:
-#         users = range(1, usernum + 1)
+    if usernum>10000:
+        users = random.sample(range(1, usernum + 1), 10000)
+    else:
+        users = range(1, usernum + 1)
     
-#     user_list = []
-#     for u in users:
-#         if len(user_train[u]) < 1 or len(user_test[u]) < 1: continue
-#         user_list.append(u)
+    user_list = []
+    for u in users:
+        if len(user_train[u]) < 1 or len(user_test[u]) < 1: continue
+        user_list.append(u)
 
-#     inference_data_set = SeqDataset_Inference(user_train, user_valid, user_test, user_list, itemnum, args.maxlen)
+    inference_data_set = SeqDataset_Inference(user_train, user_valid, user_test, user_list, itemnum, args.maxlen)
     
-#     if args.multi_gpu:
-#         inference_data_loader = DataLoader(inference_data_set, batch_size = args.batch_size_infer, sampler=DistributedSampler(inference_data_set, shuffle=True), pin_memory=True)
-#         model = DDP(model, device_ids = [args.device], static_graph=True)
-#     else:
-#         inference_data_loader = DataLoader(inference_data_set, batch_size = args.batch_size_infer, pin_memory=True)
+    if args.multi_gpu:
+        inference_data_loader = DataLoader(inference_data_set, batch_size = args.batch_size_infer, sampler=DistributedSampler(inference_data_set, shuffle=True), pin_memory=True)
+        model = DDP(model, device_ids = [args.device], static_graph=True)
+    else:
+        inference_data_loader = DataLoader(inference_data_set, batch_size = args.batch_size_infer, pin_memory=True)
     
-#     for _, data in enumerate(inference_data_loader):
-#         u, seq, pos, neg = data
-#         u, seq, pos, neg = u.numpy(), seq.numpy(), pos.numpy(), neg.numpy()
-#         model([u,seq,pos,neg, rank], mode='generate')
+    for _, data in enumerate(inference_data_loader):
+        u, seq, pos, neg = data
+        u, seq, pos, neg = u.numpy(), seq.numpy(), pos.numpy(), neg.numpy()
+        model([u,seq,pos,neg, rank], mode='generate')
