@@ -27,6 +27,7 @@ if __name__ == "__main__":
     parser.add_argument('--device', default='hpu', type=str, help='cpu, hpu')
     parser.add_argument('--inference_only', default=False, action='store_true')
     parser.add_argument('--state_dict_path', default=None, type=str)
+    parser.add_argument('--nn_parameter', default=False, action='store_true')
     
     args = parser.parse_args()
     
