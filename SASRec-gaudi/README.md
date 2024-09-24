@@ -1,4 +1,4 @@
-This is Gaudi-v2 version source code for [Self-Attentive Sequential Recommendation](https://arxiv.org/abs/1808.09781), [Code-Tensorflow](https://github.com/kang205/SASRec), and [Code-Cuda](https://github.com/pmixer/SASRec.pytorch).
+This is Gaudi-v2 version implementation for [Self-Attentive Sequential Recommendation](https://arxiv.org/abs/1808.09781), [Code-Tensorflow](https://github.com/kang205/SASRec), and [Code-Cuda](https://github.com/pmixer/SASRec.pytorch).
 
 ## Datasets:
 
