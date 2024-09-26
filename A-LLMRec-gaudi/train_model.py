@@ -56,8 +56,11 @@ def train_model_phase2(args):
 def inference(args):
     print('A-LLMRec start inference\n')
     if args.multi_gpu:
-        world_size = htcore.device_count()
-        mp.spawn(inference_, args=(world_size, args), nprocs=world_size)
+        world_size = args.world_size
+        mp.spawn(inference_,
+             args=(world_size,args),
+             nprocs=world_size,
+             join=True)
     else:
         inference_(0,0,args)
   
@@ -169,7 +172,7 @@ def inference_(rank, world_size, args):
         args.device = torch.device('hpu')
         
     model = A_llmrec_model(args).to(args.device)
-    phase1_epoch = 10
+    phase1_epoch = 3
     phase2_epoch = 1
     model.load_model(args, phase1_epoch=phase1_epoch, phase2_epoch=phase2_epoch)
 
@@ -197,10 +200,13 @@ def inference_(rank, world_size, args):
     
     if args.multi_gpu:
         inference_data_loader = DataLoader(inference_data_set, batch_size = args.batch_size_infer, sampler=DistributedSampler(inference_data_set, shuffle=True), pin_memory=True)
-        model = DDP(model, device_ids = [args.device], static_graph=True)
+        model = DDP(model, static_graph=True)
     else:
         inference_data_loader = DataLoader(inference_data_set, batch_size = args.batch_size_infer, pin_memory=True)
-    
+
+    if not os.path.exists('./results'):
+        os.makedirs('./results')
+
     for _, data in enumerate(inference_data_loader):
         u, seq, pos, neg = data
         u, seq, pos, neg = u.numpy(), seq.numpy(), pos.numpy(), neg.numpy()

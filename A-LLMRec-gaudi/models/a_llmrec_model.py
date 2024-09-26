@@ -98,7 +98,6 @@ class A_llmrec_model(nn.Module):
     def load_model(self, args, phase1_epoch=None, phase2_epoch=None):
         out_dir = f'./models/saved_models/{args.rec_pre_trained_data}_{args.recsys}_{phase1_epoch}_'
         
-        # mlp = torch.load(out_dir + 'mlp.pt', map_location = args.device)
         mlp = torch.load(out_dir + 'mlp.pt')
         self.mlp.load_state_dict(mlp)
 
@@ -109,12 +108,10 @@ class A_llmrec_model(nn.Module):
         if args.inference:
             out_dir += f'{args.llm}_{phase2_epoch}_'
             
-            # log_emb_proj_dict = torch.load(out_dir + 'log_proj.pt', map_location = args.device)
             log_emb_proj_dict = torch.load(out_dir + 'log_proj.pt')
             self.log_emb_proj.load_state_dict(log_emb_proj_dict)
             del log_emb_proj_dict
             
-            # item_emb_proj_dict = torch.load(out_dir + 'item_proj.pt', map_location = args.device)
             item_emb_proj_dict = torch.load(out_dir + 'item_proj.pt')
             self.item_emb_proj.load_state_dict(item_emb_proj_dict)
             del item_emb_proj_dict
@@ -395,7 +392,7 @@ class A_llmrec_model(nn.Module):
                 return_tensors="pt"
             ).to(self.device)
             
-            with torch.cuda.amp.autocast():
+            with torch.autocast(device_type="hpu"):
                 inputs_embeds = self.llm.llm_model.get_input_embeddings()(llm_tokens.input_ids)
                 
                 llm_tokens, inputs_embeds = self.llm.replace_hist_candi_token(llm_tokens, inputs_embeds, interact_embs, candidate_embs)
@@ -423,7 +420,7 @@ class A_llmrec_model(nn.Module):
             output_text = [text.strip() for text in output_text]
 
         for i in range(len(text_input)):
-            f = open(f'./recommendation_output.txt','a')
+            f = open(f'./results/recommendation_output_{rank}.txt','a')
             f.write(text_input[i])
             f.write('\n\n')
             

@@ -1,5 +1,6 @@
 import numpy as np
-    
+import os
+
 def get_answers_predictions(file_path):
     answers = []
     llm_predictions = []
@@ -45,11 +46,23 @@ def evaluate(answers, llm_predictions, k=1):
     return NDCG / predict_num, HT / predict_num
 
 if __name__ == "__main__":
-    inferenced_file_path = './recommendation_output.txt'
-    answers, llm_predictions = get_answers_predictions(inferenced_file_path)
-    print(len(answers), len(llm_predictions))
-    assert(len(answers) == len(llm_predictions))
+    file_name = 'recommendation_output'
+    root = './results'
+    files = os.listdir(root)
+    answers, llm_predictions = [], []
+    for f in files:
+        if f[:len(file_name)] == file_name:
+            print(f)
+            answers_, llm_predictions_ = get_answers_predictions(f'{root}/{f}')
+            answers += answers_
+            llm_predictions += llm_predictions_
     
-    ndcg, ht = evaluate(answers, llm_predictions, k=1)
-    print(f"ndcg at 1: {ndcg}")
-    print(f"hit at 1: {ht}")
+    if len(answers) >0:
+        print(len(answers), len(llm_predictions))
+        assert(len(answers) == len(llm_predictions))
+        
+        ndcg, ht = evaluate(answers, llm_predictions, k=1)
+        print(f"ndcg at 1: {ndcg}")
+        print(f"hit at 1: {ht}")
+    else:
+        print("Empty Results")
