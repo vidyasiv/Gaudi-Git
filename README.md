@@ -10,6 +10,6 @@ Currently, we have implemented three recommendation models:
 Checklists for improving implementation of recommendation models
 - [x] Distributed Data Parallel: A-LLMRec Stage 1
 - [x] Distributed Data Parallel: A-LLMRec Stage 2
-- [ ] Distributed Data Parallel: A-LLMRec Inference
+- [x] Distributed Data Parallel: A-LLMRec Inference
 - [ ] Distributed Data Parallel: Automatically find `world_size` (initialize_distributed_hpu)
 - [ ] `nn.Parameter` -> `nn.Embedding`
