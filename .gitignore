@@ -6,5 +6,3 @@
 *.pyc
 *.json
 *.pt
-
-./Test-gaudi/data/MNIST/raw
