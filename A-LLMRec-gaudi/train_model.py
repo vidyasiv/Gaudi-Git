@@ -45,8 +45,11 @@ def train_model_phase1(args):
 def train_model_phase2(args):
     print('A-LLMRec strat train phase-2\n')
     if args.multi_gpu:
-        world_size = htcore.device_count()
-        mp.spawn(train_model_phase2_, args=(world_size, args), nprocs=world_size)
+        world_size = args.world_size
+        mp.spawn(train_model_phase2_,
+             args=(world_size,args),
+             nprocs=world_size,
+             join=True)
     else:
         train_model_phase2_(0, 0, args)
 
@@ -131,7 +134,7 @@ def train_model_phase2_(rank,world_size,args):
     train_data_set = SeqDataset(user_train, usernum, itemnum, args.maxlen)
     if args.multi_gpu:
         train_data_loader = DataLoader(train_data_set, batch_size = args.batch_size2, sampler=DistributedSampler(train_data_set, shuffle=True), pin_memory=True)
-        model = DDP(model, device_ids = [args.device], static_graph=True)
+        model = DDP(model, static_graph=True)
     else:
         train_data_loader = DataLoader(train_data_set, batch_size = args.batch_size2, pin_memory=True, shuffle=True)
     adam_optimizer = torch.optim.Adam(model.parameters(), lr=args.stage2_lr, betas=(0.9, 0.98))

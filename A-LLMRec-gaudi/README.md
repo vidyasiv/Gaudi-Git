@@ -38,6 +38,11 @@ python main.py --pretrain_stage1 --rec_pre_trained_data Movies_and_TV --nn_param
 python main.py --pretrain_stage2 --rec_pre_trained_data Movies_and_TV --nn_parameter
 ```
 
+```
+#For DDP
+python main.py --pretrain_stage2 --rec_pre_trained_data Movies_and_TV --nn_parameter --multi_gpu --world_size 8
+```
+
 ## Evaluation
 Inference stage generates "recommendation_output.txt" file and write the recommendation result generated from the LLMs into the file. To evaluate the result, run the eval.py file.
 
