@@ -165,7 +165,7 @@ class A_llmrec_model(nn.Module):
         epoch, total_epoch, step, total_step = batch_iter
         
         self.sbert.train()
-        optimizer.zero_grad()
+        # optimizer.zero_grad()
 
         u, seq, pos, neg = data
         indices = [self.maxlen*(i+1)-1 for i in range(u.shape[0])]
@@ -189,6 +189,7 @@ class A_llmrec_model(nn.Module):
         text_rc_loss = 0
         original_loss = 0
         while start_inx < len(log_emb_):
+            optimizer.zero_grad()
             log_emb = log_emb_[start_inx:end_inx]
             pos_emb = pos_emb_[start_inx:end_inx]
             neg_emb = neg_emb_[start_inx:end_inx]

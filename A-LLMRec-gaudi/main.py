@@ -13,7 +13,7 @@ if __name__ == "__main__":
     # GPU train options
     parser.add_argument("--multi_gpu", action='store_true')
     parser.add_argument('--device', type=str, default='hpu')
-    
+    parser.add_argument("--world_size", type=int, default=1)
     # model setting
     parser.add_argument("--llm", type=str, default='opt', help='flan_t5, opt, vicuna')
     parser.add_argument("--recsys", type=str, default='sasrec')

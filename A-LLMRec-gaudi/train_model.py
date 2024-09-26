@@ -21,8 +21,9 @@ from habana_frameworks.torch.distributed.hccl import initialize_distributed_hpu
 
 
 def setup_ddp(rank, world_size):
-    os.environ ["MASTER_ADDR"] = "localhost"
-    os.environ ["MASTER_PORT"] = "12355"
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    os.environ["ID"] = str(rank)
     import habana_frameworks.torch.distributed.hccl
     init_process_group(backend="hccl", rank=rank, world_size=world_size)
     # htcore.set_device(rank)
@@ -30,13 +31,14 @@ def setup_ddp(rank, world_size):
 def train_model_phase1(args):
     print('A-LLMRec start train phase-1\n')
     if args.multi_gpu:
-        world_size, rank, local_rank = initialize_distributed_hpu()
-        # train_model_phase1_(rank, world_size, args)
+        #Initialize distributed hpu problem
+        # world_size, rank, local_rank = initialize_distributed_hpu()
+        world_size = args.world_size
+        
         mp.spawn(train_model_phase1_,
              args=(world_size,args),
              nprocs=world_size,
              join=True)
-        # mp.spawn(, args=(world_size, args), nprocs=world_size)
     else:
         train_model_phase1_(0, 0, args)
         
@@ -76,8 +78,7 @@ def train_model_phase1_(rank, world_size, args):
     train_data_set = SeqDataset(user_train, usernum, itemnum, args.maxlen)
     if args.multi_gpu:
         train_data_loader = DataLoader(train_data_set, batch_size = args.batch_size1, sampler=DistributedSampler(train_data_set, shuffle=True), pin_memory=True)
-        # model = DDP(model, device_ids = [args.device], static_graph=True)
-        model = DDP(model)
+        model = DDP(model, static_graph=True)
     else:
         train_data_loader = DataLoader(train_data_set, batch_size = args.batch_size1, pin_memory=True)        
     

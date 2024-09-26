@@ -28,6 +28,11 @@ cd ../../
 python main.py --pretrain_stage1 --rec_pre_trained_data Movies_and_TV --nn_parameter
 ```
 
+```
+#For DDP
+python main.py --pretrain_stage1 --rec_pre_trained_data Movies_and_TV --nn_parameter --multi_gpu --world_size 8
+```
+
 - train stage2
 ```
 python main.py --pretrain_stage2 --rec_pre_trained_data Movies_and_TV --nn_parameter
