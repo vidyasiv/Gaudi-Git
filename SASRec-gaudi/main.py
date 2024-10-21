@@ -144,6 +144,7 @@ if __name__ == '__main__':
     
     # Apply debug hooks
     for name, module in model.named_modules():
+        print(f"Adding hook for {name} module {module}")
         module.register_forward_hook(hook)
         module.register_forward_pre_hook(pre_hook,with_kwargs=True)
         module.register_full_backward_hook(bk_hook)
