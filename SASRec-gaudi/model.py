@@ -1,6 +1,10 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import os
+import sys
+sys.path.append('/root/vidyasiv/work/pytorch-integration')
+from topologies.tools import TrainMetaData, tp_probe_tensors_iteration_start, tp_probe_tensors_iteration_end
 
 class PointWiseFeedForward(torch.nn.Module):
     def __init__(self, hidden_units, dropout_rate):
@@ -16,13 +20,15 @@ class PointWiseFeedForward(torch.nn.Module):
     def forward(self, inputs):
         outputs = self.dropout2(self.conv2(self.relu(self.dropout1(self.conv1(inputs.transpose(-1, -2))))))
         outputs = outputs.transpose(-1, -2)
+        # change 2 for 0 dropout
+        outputs = outputs.clone()
         outputs += inputs
+
         return outputs
     
 class SASRec(torch.nn.Module):
     def __init__(self, user_num, item_num, args):
         super(SASRec, self).__init__()
-
         self.kwargs = {'user_num': user_num, 'item_num':item_num, 'args':args}
         self.user_num = user_num
         self.item_num = item_num
@@ -65,14 +71,18 @@ class SASRec(torch.nn.Module):
             new_fwd_layer = PointWiseFeedForward(args.hidden_units, args.dropout_rate)
             self.forward_layers.append(new_fwd_layer)
 
+
     def log2feats(self, log_seqs):
         if self.nn_parameter:
             seqs = self.item_emb[torch.LongTensor(log_seqs).to(self.dev)]
             seqs *= self.embedding_dim **0.5
+
         else:
             seqs = self.item_emb(torch.LongTensor(log_seqs).to(self.dev))
+            # change1 for hooks
+            seqs = seqs.clone()
             seqs *= self.item_emb.embedding_dim ** 0.5
-        
+
         positions = np.tile(np.array(range(log_seqs.shape[1])), [log_seqs.shape[0], 1])
         
         #nn.Embedding
@@ -84,6 +94,9 @@ class SASRec(torch.nn.Module):
         seqs = self.emb_dropout(seqs)
 
         timeline_mask = torch.BoolTensor(log_seqs == 0).to(self.dev)
+        # change 1 for 0 dropout
+        #seqs *= ~timeline_mask.unsqueeze(-1)
+        seqs = seqs.clone()
         seqs *= ~timeline_mask.unsqueeze(-1)
 
         tl = seqs.shape[1]
@@ -100,6 +113,8 @@ class SASRec(torch.nn.Module):
 
             seqs = self.forward_layernorms[i](seqs)
             seqs = self.forward_layers[i](seqs)
+            # change 2 for hooks
+            seqs = seqs.clone()
             seqs *=  ~timeline_mask.unsqueeze(-1)
 
         log_feats = self.last_layernorm(seqs)
@@ -107,6 +122,7 @@ class SASRec(torch.nn.Module):
 
     def forward(self, user_ids, log_seqs, pos_seqs, neg_seqs, mode='default'):
         log_feats = self.log2feats(log_seqs)
+
         if mode == 'log_only':
             log_feats = log_feats[:, -1, :]
             return log_feats

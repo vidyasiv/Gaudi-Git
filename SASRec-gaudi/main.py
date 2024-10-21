@@ -13,6 +13,10 @@ from utils import *
 
 from tqdm import tqdm
 
+## Debug
+import sys
+from habana_utils import set_seed, SEED
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', required=True)
 # parser.add_argument('--dataset', default = 'Amazon_Fashion')
@@ -31,10 +35,44 @@ parser.add_argument('--nn_parameter', default=False, action='store_true')
 parser.add_argument('--state_dict_path', default=None, type=str)
 parser.add_argument('--sampling', default=0, type=int, help='sampling rate, 0 = non sample')
 
+global_step=0
+
+def pre_hook(module, args, kwargs):
+    print(f'PRE HOOK! for module {module}, step {global_step}')
+    print(args)
+    print(kwargs)
+    print(f'PRE HOOK! for module {module}, step {global_step}')
+
+
+def hook(module, args, output):
+    print(f'POST HOOK! for module {module}, step {global_step}')
+    print("******args*****")
+    print(args)
+    print("******output*****")
+    print(output)
+    print(f'POST HOOK! for module {module}, step {global_step}')
+
+
+def pre_bk_hook(module, grad_output):
+    print(f'PRE BK HOOK! for module {module}, step {global_step}')
+    print(f"******grad_output*********")
+    print(grad_output)
+    print(f'PRE BK HOOK! for module {module}, step {global_step}')
+
+
+def bk_hook(module, grad_input, grad_output):
+    print(f'POST BK HOOK! for module {module}, step {global_step}')
+    print(f"-------grad_input-----")
+    print(grad_input)
+    print(f"-------grad_output-----")
+    print(grad_output)
+    print(f'POST BK HOOK! for module {module}, step {global_step}')
+
 args = parser.parse_args()
 
 if __name__ == '__main__':
     
+    set_seed(SEED)
     # global dataset
     
     if (not os.path.isfile(f'./data/processed/{args.dataset}_train.txt')) or (not os.path.isfile(f'./data/processed/{args.dataset}_valid.txt') or (not os.path.isfile(f'./data/processed/{args.dataset}_test.txt'))):
@@ -53,17 +91,27 @@ if __name__ == '__main__':
     
     if args.device =='hpu':
         args.device = torch.device('hpu')
+    if args.device =='cpu':
+        args.device = torch.device('cpu')
     
     # dataloader
     sampler = WarpSampler(user_train, usernum, itemnum, batch_size=args.batch_size, maxlen=args.maxlen, n_workers=3)       
     # model init
     model = SASRec(usernum, itemnum, args).to(args.device)
+    print(model)
     
+    # Moving xavier_normal to cpu
+    if args.device.type == "hpu":
+        model = model.to(torch.device("cpu"))
+
     for name, param in model.named_parameters():
         try:
             torch.nn.init.xavier_normal_(param.data)
         except:
             pass
+
+    if args.device.type == "hpu":
+        model = model.to(args.device)
     
     epoch_start_idx = 1
     if args.state_dict_path is not None:
@@ -94,12 +142,23 @@ if __name__ == '__main__':
     t0 = time.time()
     start_time = time.time()
     
+    # Apply debug hooks
+    for name, module in model.named_modules():
+        module.register_forward_hook(hook)
+        module.register_forward_pre_hook(pre_hook,with_kwargs=True)
+        module.register_full_backward_hook(bk_hook)
+        module.register_full_backward_pre_hook(pre_bk_hook)
+
+
     for epoch in tqdm(range(epoch_start_idx, args.num_epochs + 1)):
         model.train()
         epoch_s_time = time.time()
         total_loss, count = 0, 0
         if args.inference_only: break
-        for step in range(num_batch):
+        # Fix steps to 5 for debug
+        for step in range(5):
+            print(f"step is {step}")
+            global_step = step
             u, seq, pos, neg = sampler.next_batch()
             u, seq, pos, neg = np.array(u), np.array(seq), np.array(pos), np.array(neg)
             
@@ -119,10 +178,10 @@ if __name__ == '__main__':
              
             #GAUDI
             loss.backward()
-            if args.device =='hpu':
+            if args.device.type =='hpu':
                 htcore.mark_step()
             adam_optimizer.step()
-            if args.device =='hpu':
+            if args.device.type =='hpu':
                 htcore.mark_step()
             
             total_loss += loss.item()
